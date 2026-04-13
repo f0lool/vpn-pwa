@@ -1,19 +1,19 @@
 {
   "name": "VPN Manager",
   "short_name": "VPN",
-  "start_url": "/",
-  "scope": "/",
+  "start_url": "/vpn-pwa/",
+  "scope": "/vpn-pwa/",
   "display": "standalone",
   "theme_color": "#317EFB",
   "background_color": "#0a0e1a",
   "icons": [
     {
-      "src": "/icon-192.png",
+      "src": "/vpn-pwa/icon-192.png",
       "sizes": "192x192",
       "type": "image/png"
     },
     {
-      "src": "/icon-512.png",
+      "src": "/vpn-pwa/icon-512.png",
       "sizes": "512x512",
       "type": "image/png"
     }
