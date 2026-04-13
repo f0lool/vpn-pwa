@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>VPN Manager</title>
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="icon-512.png">
+    <meta name="theme-color" content="#317EFB">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background: #0a0e1a;
+            color: #fff;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 16px;
+        }
+        .card {
+            background: #1a1f2e;
+            border-radius: 32px;
+            padding: 32px 24px;
+            max-width: 500px;
+            width: 100%;
+            box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5);
+            text-align: center;
+        }
+        h1 {
+            font-size: 28px;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+        .sub {
+            color: #8b92a8;
+            margin-bottom: 32px;
+            font-size: 14px;
+        }
+        button {
+            background: #317EFB;
+            color: white;
+            border: none;
+            padding: 16px 28px;
+            border-radius: 60px;
+            font-size: 18px;
+            font-weight: 600;
+            width: 100%;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin-bottom: 24px;
+        }
+        button:active { transform: scale(0.97); background: #2563eb; }
+        .result {
+            background: #0f131e;
+            border-radius: 20px;
+            padding: 20px;
+            text-align: left;
+            display: none;
+            border: 1px solid #2a2f3e;
+        }
+        .result.show { display: block; }
+        .key {
+            background: #080b12;
+            padding: 12px;
+            border-radius: 12px;
+            font-family: monospace;
+            font-size: 12px;
+            word-break: break-all;
+            margin: 16px 0;
+            color: #8b92a8;
+        }
+        .qr {
+            text-align: center;
+            margin: 16px 0;
+        }
+        .qr img {
+            background: white;
+            padding: 12px;
+            border-radius: 20px;
+            max-width: 180px;
+            width: 100%;
+        }
+        .status { font-size: 14px; color: #8b92a8; margin-top: 16px; }
+        .error { color: #f87171; }
+        .success { color: #4ade80; }
+        footer {
+            margin-top: 24px;
+            font-size: 12px;
+            color: #4a4f62;
+        }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h1>🔐 VPN Manager</h1>
+        <div class="sub">Получите ключ в один клик</div>
+        
+        <button id="getKeyBtn">📱 Получить VPN-ключ</button>
+        
+        <div id="result" class="result">
+            <div id="resultContent"></div>
+        </div>
+        <footer>Ключ генерируется автоматически</footer>
+    </div>
+
+    <script>
+        // ⚠️⚠️⚠️ ВАШИ НАСТРОЙКИ — ЗАМЕНИТЕ НА СВОИ ⚠️⚠️⚠️
+        const API_URL = 'https://151.246.238.67:8082/api';
+        const API_TOKEN = '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';
+        const SERVER_ID = 1;  // ID сервера в панели (обычно 1)
+        
+        // Конец настроек — ниже ничего не трогайте
+        
+        const getKeyBtn = document.getElementById('getKeyBtn');
+        const resultDiv = document.getElementById('result');
+        const resultContent = document.getElementById('resultContent');
+        
+        async function getVPNKey() {
+            resultDiv.classList.add('show');
+            resultContent.innerHTML = '<div class="status">⏳ Генерация ключа...</div>';
+            
+            try {
+                // Шаг 1: создаём клиента
+                const createResponse = await fetch(`${API_URL}/clients/create`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${API_TOKEN}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        server_id: SERVER_ID,
+                        name: `user_${Date.now()}`,
+                        expires_in_days: 30
+                    })
+                });
+                
+                if (!createResponse.ok) {
+                    throw new Error(`Ошибка создания: ${createResponse.status}`);
+                }
+                
+                const client = await createResponse.json();
+                
+                // Шаг 2: получаем детали клиента (конфиг + QR)
+                const detailsResponse = await fetch(`${API_URL}/clients/${client.id}/details`, {
+                    headers: { 'Authorization': `Bearer ${API_TOKEN}` }
+                });
+                
+                if (!detailsResponse.ok) {
+                    throw new Error(`Ошибка получения деталей: ${detailsResponse.status}`);
+                }
+                
+                const details = await detailsResponse.json();
+                
+                // Шаг 3: показываем результат
+                resultContent.innerHTML = `
+                    <div class="status success">✅ Ключ успешно создан!</div>
+                    <div class="key">${escapeHtml(details.config || details.connection_string || 'Конфигурация получена')}</div>
+                    ${details.qr_code ? `<div class="qr"><img src="${details.qr_code}" alt="QR-код"></div>` : ''}
+                    <div class="status">📅 Ключ действителен 30 дней</div>
+                `;
+                
+            } catch (error) {
+                resultContent.innerHTML = `<div class="status error">❌ Ошибка: ${error.message}</div>`;
+            }
+        }
+        
+        function escapeHtml(str) {
+            if (!str) return '';
+            return str.replace(/[&<>]/g, function(m) {
+                if (m === '&') return '&amp;';
+                if (m === '<') return '&lt;';
+                if (m === '>') return '&gt;';
+                return m;
+            });
+        }
+        
+        getKeyBtn.addEventListener('click', getVPNKey);
+        
+        // Регистрация Service Worker для PWA
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/sw.js')
+                .then(reg => console.log('SW registered:', reg))
+                .catch(err => console.log('SW error:', err));
+        }
+    </script>
+</body>
+</html>
